@@ -94,6 +94,18 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 });
 
+/** Push subscriptions registered by accountability partners from their private link (no account). */
+export const partnerPushSubscriptions = pgTable('partner_push_subscriptions', {
+	id: uuid('id').primaryKey().defaultRandom(),
+	partnerId: uuid('partner_id')
+		.notNull()
+		.references(() => partners.id, { onDelete: 'cascade' }),
+	endpoint: text('endpoint').notNull().unique(),
+	p256dh: text('p256dh').notNull(),
+	auth: text('auth').notNull(),
+	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+});
+
 export const checklistState = pgTable('checklist_state', {
 	userId: uuid('user_id')
 		.primaryKey()

@@ -8,7 +8,7 @@ import {
 } from '$app/env/private';
 import { VAPID_PUBLIC_KEY } from '$app/env/public';
 import { db } from './db';
-import { notifications, pushSubscriptions } from './db/schema';
+import { notifications, partnerPushSubscriptions, pushSubscriptions } from './db/schema';
 
 let vapidReady = false;
 function ensureVapid() {
@@ -78,39 +78,37 @@ export async function sendEmail(args: EmailArgs) {
 	}
 }
 
-export async function sendPush(
+type PushPayload = { title: string; body: string; url?: string };
+type Sub = { id: string; endpoint: string; p256dh: string; auth: string };
+
+/** Deliver to a set of subscriptions, logging each attempt and pruning expired ones. */
+async function deliver(
+	subs: Sub[],
 	userId: string,
 	kind: string,
-	payload: { title: string; body: string; url?: string }
+	payload: PushPayload,
+	prune: (id: string) => Promise<unknown>,
+	label?: string
 ) {
 	if (!ensureVapid()) return { sent: 0 };
-	const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
 	let sent = 0;
 	for (const s of subs) {
+		const recipient = label ?? new URL(s.endpoint).host;
 		try {
 			await webpush.sendNotification(
 				{ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
 				JSON.stringify(payload)
 			);
 			sent++;
-			await db.insert(notifications).values({
-				userId,
-				kind,
-				channel: 'push',
-				recipient: new URL(s.endpoint).host,
-				subject: payload.title,
-				status: 'sent'
-			});
+			await db.insert(notifications).values({ userId, kind, channel: 'push', recipient, subject: payload.title, status: 'sent' });
 		} catch (e: unknown) {
 			const status = (e as { statusCode?: number }).statusCode;
-			if (status === 404 || status === 410) {
-				await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, s.id));
-			}
+			if (status === 404 || status === 410) await prune(s.id);
 			await db.insert(notifications).values({
 				userId,
 				kind,
 				channel: 'push',
-				recipient: new URL(s.endpoint).host,
+				recipient,
 				subject: payload.title,
 				status: 'failed',
 				error: String(e).slice(0, 500)
@@ -118,6 +116,33 @@ export async function sendPush(
 		}
 	}
 	return { sent };
+}
+
+export async function sendPush(userId: string, kind: string, payload: PushPayload) {
+	const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+	return deliver(subs, userId, kind, payload, (id) =>
+		db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, id))
+	);
+}
+
+/** Push to every device an accountability partner registered. Logged under the owner's account. */
+export async function sendPartnerPush(
+	partner: { id: string; userId: string; name: string },
+	kind: string,
+	payload: PushPayload
+) {
+	const subs = await db
+		.select()
+		.from(partnerPushSubscriptions)
+		.where(eq(partnerPushSubscriptions.partnerId, partner.id));
+	return deliver(
+		subs,
+		partner.userId,
+		kind,
+		payload,
+		(id) => db.delete(partnerPushSubscriptions).where(eq(partnerPushSubscriptions.id, id)),
+		`${partner.name}’s phone`
+	);
 }
 
 const esc = (s: string) =>

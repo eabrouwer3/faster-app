@@ -7,6 +7,7 @@
 	import { enhance } from '$app/forms';
 	import { toast } from 'svelte-sonner';
 	import Copy from '@lucide/svelte/icons/copy';
+	import BellRing from '@lucide/svelte/icons/bell-ring';
 	import type { PageProps } from './$types';
 	import type { SubmitFunction } from '$app/forms';
 
@@ -33,8 +34,8 @@
 	<div>
 		<h1 class="text-2xl font-semibold tracking-tight">Accountability partners</h1>
 		<p class="mt-1 text-sm text-muted-foreground">
-			Choose people you trust. They’ll get an email when a check-in reaches the stage you pick — and
-			can see a summary of your check-ins through a private link.
+			Choose people you trust. They’ll get an email (and a phone notification, if they turn it on from
+			their private link) when a check-in reaches the stage you pick.
 		</p>
 	</div>
 
@@ -95,6 +96,13 @@
 						<Card.Title class="flex flex-wrap items-center gap-2">
 							{p.name}
 							{#if !p.active}<span class="rounded-full bg-muted px-2 py-0.5 text-xs font-normal">Paused</span>{/if}
+							{#if p.devices}
+								<span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-normal text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+									<BellRing class="size-3" /> Phone alerts on{p.devices > 1 ? ` · ${p.devices} devices` : ''}
+								</span>
+							{:else}
+								<span class="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">Email only</span>
+							{/if}
 						</Card.Title>
 						<Card.Description>{p.email}</Card.Description>
 					</Card.Header>
@@ -131,6 +139,9 @@
 						</form>
 						<div class="grid gap-1.5">
 							<Label>Private partner link</Label>
+							<p class="text-xs text-muted-foreground">
+								{p.name} can open this and tap <strong>Notify me on this phone</strong> to get alerts as phone notifications — free, no app or account.
+							</p>
 							<div class="flex gap-2">
 								<Input readonly value={p.viewUrl} class="h-9 font-mono text-xs" />
 								<Button variant="outline" size="icon-lg" onclick={() => copy(p.viewUrl)} aria-label="Copy link"><Copy /></Button>

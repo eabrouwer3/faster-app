@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.js';
-import { notifications, partners } from '#lib/server/db/schema.js';
+import { notifications, partnerPushSubscriptions, partners } from '#lib/server/db/schema.js';
 import { randomToken } from '#lib/server/auth.js';
 import { partnerViewUrl, sendPartnerWelcome } from '#lib/server/alerts.js';
 import { emailConfigured } from '#lib/server/notify.js';
@@ -19,8 +19,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.orderBy(desc(notifications.createdAt))
 			.limit(15)
 	]);
+	const deviceCounts = new Map<string, number>();
+	if (list.length) {
+		const rows = await db
+			.select({ partnerId: partnerPushSubscriptions.partnerId, n: count() })
+			.from(partnerPushSubscriptions)
+			.where(inArray(partnerPushSubscriptions.partnerId, list.map((p) => p.id)))
+			.groupBy(partnerPushSubscriptions.partnerId);
+		for (const r of rows) deviceCounts.set(r.partnerId, r.n);
+	}
 	return {
-		partners: list.map((p) => ({ ...p, viewUrl: partnerViewUrl(p) })),
+		partners: list.map((p) => ({ ...p, viewUrl: partnerViewUrl(p), devices: deviceCounts.get(p.id) ?? 0 })),
 		log,
 		emailConfigured: emailConfigured()
 	};

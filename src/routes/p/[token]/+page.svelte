@@ -3,6 +3,7 @@
 	import StageBadge from '#lib/components/StageBadge.svelte';
 	import TrendChart from '#lib/components/TrendChart.svelte';
 	import FasterLadder from '#lib/components/FasterLadder.svelte';
+	import PartnerNotify from '#lib/components/PartnerNotify.svelte';
 	import { STAGE_ORDER, stagesFor } from '#lib/faster.js';
 	import type { PageProps } from './$types';
 
@@ -28,6 +29,8 @@
 			Hi {data.partnerName} — {data.person.name} invited you as an accountability partner. Thank you for walking with them.
 		</p>
 	</div>
+
+	<PartnerNotify token={data.token} personName={data.person.name} />
 
 	{#if last}
 		<Card.Root>

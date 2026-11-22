@@ -29,6 +29,7 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
 		selections: row.p.shareDetails ? c.selections : {}
 	}));
 	return {
+		token: params.token,
 		partnerName: row.p.name,
 		person: row.u,
 		shareDetails: row.p.shareDetails,

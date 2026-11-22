@@ -2,7 +2,7 @@ import { and, desc, eq, isNotNull } from 'drizzle-orm';
 import { PUBLIC_BASE_URL } from '$app/env/private';
 import { db } from './db';
 import { checkins, partners, reminders, users } from './db/schema';
-import { emailLayout, sendEmail, sendPush } from './notify';
+import { emailLayout, sendEmail, sendPartnerPush, sendPush } from './notify';
 import { partnerViewUrl } from './alerts';
 
 const WINDOW_MIN = 15; // tolerate restarts/missed ticks
@@ -122,6 +122,11 @@ export async function runMissedCheckins(now = new Date()) {
 			html,
 			text,
 			replyTo: u.email
+		});
+		await sendPartnerPush(p, 'missed', {
+			title: `${u.name} hasn’t checked in for ${days}+ days`,
+			body: 'A simple “how are you really doing?” can make a big difference.',
+			url: `/p/${p.viewToken}`
 		});
 	}
 }
